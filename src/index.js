@@ -1,8 +1,6 @@
 // src/index.js
 
-import { baremuxPath } from "@mercuryworkshop/bare-mux/node";
-
-// Helper to serve static assets
+// Helper to serve static assets from the bound ASSETS directory
 async function serveStatic(directory, request, prefix = "") {
   const url = new URL(request.url);
   if (!url.pathname.startsWith(prefix)) return null;
@@ -23,17 +21,9 @@ async function serveStatic(directory, request, prefix = "") {
 
 export default {
   async fetch(request, env, ctx) {
-    const url = new URL(request.url);
-
     // Serve public assets
     const publicRes = await serveStatic(env.ASSETS, request, "/");
     if (publicRes) return publicRes;
-
-    // Serve BareMux assets
-    if (url.pathname.startsWith("/baremux/")) {
-      const res = await serveStatic(baremuxPath, request, "/baremux/");
-      if (res) return res;
-    }
 
     // Default 404
     return new Response("404 Not Found", { status: 404 });
