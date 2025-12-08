@@ -1,10 +1,8 @@
-// src/index.js
-
 import { scramjetPath } from "@mercuryworkshop/scramjet/path";
-import { epoxyPath } from "@mercuryworkshop/epoxy-transport";
+// epoxyPath import removed (not exported in v2.1.28)
 import { baremuxPath } from "@mercuryworkshop/bare-mux/node";
 
-// Utility to serve static files from a given directory
+// Helper to serve static assets
 async function serveStatic(directory, request, prefix = "") {
   const url = new URL(request.url);
   if (!url.pathname.startsWith(prefix)) return null;
@@ -17,7 +15,7 @@ async function serveStatic(directory, request, prefix = "") {
         headers: { "Content-Type": file.type || "application/octet-stream" },
       });
     }
-  } catch (err) {
+  } catch {
     return new Response("Not Found", { status: 404 });
   }
   return null;
@@ -28,20 +26,12 @@ export default {
     const url = new URL(request.url);
 
     // Serve public assets
-    if (url.pathname.startsWith("/")) {
-      const res = await serveStatic(env.ASSETS, request, "/");
-      if (res) return res;
-    }
+    const publicRes = await serveStatic(env.ASSETS, request, "/");
+    if (publicRes) return publicRes;
 
     // Serve Scramjet assets
     if (url.pathname.startsWith("/scram/")) {
       const res = await serveStatic(scramjetPath, request, "/scram/");
-      if (res) return res;
-    }
-
-    // Serve Epoxy assets
-    if (url.pathname.startsWith("/epoxy/")) {
-      const res = await serveStatic(epoxyPath, request, "/epoxy/");
       if (res) return res;
     }
 
