@@ -1,5 +1,5 @@
-import { scramjetPath } from "@mercuryworkshop/scramjet/path";
-// epoxyPath import removed (not exported in v2.1.28)
+// src/index.js
+
 import { baremuxPath } from "@mercuryworkshop/bare-mux/node";
 
 // Helper to serve static assets
@@ -28,12 +28,6 @@ export default {
     // Serve public assets
     const publicRes = await serveStatic(env.ASSETS, request, "/");
     if (publicRes) return publicRes;
-
-    // Serve Scramjet assets
-    if (url.pathname.startsWith("/scram/")) {
-      const res = await serveStatic(scramjetPath, request, "/scram/");
-      if (res) return res;
-    }
 
     // Serve BareMux assets
     if (url.pathname.startsWith("/baremux/")) {
