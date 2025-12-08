@@ -1,96 +1,57 @@
-import { createServer } from "node:http";
-import { fileURLToPath } from "url";
-import { hostname } from "node:os";
-import { server as wisp, logging } from "@mercuryworkshop/wisp-js/server";
-import Fastify from "fastify";
-import fastifyStatic from "@fastify/static";
+// src/index.js
 
 import { scramjetPath } from "@mercuryworkshop/scramjet/path";
 import { epoxyPath } from "@mercuryworkshop/epoxy-transport";
 import { baremuxPath } from "@mercuryworkshop/bare-mux/node";
 
-const publicPath = fileURLToPath(new URL("../public/", import.meta.url));
+// Utility to serve static files from a given directory
+async function serveStatic(directory, request, prefix = "") {
+  const url = new URL(request.url);
+  if (!url.pathname.startsWith(prefix)) return null;
 
-// Wisp Configuration: Refer to the documentation at https://www.npmjs.com/package/@mercuryworkshop/wisp-js
-
-logging.set_level(logging.NONE);
-Object.assign(wisp.options, {
-  allow_udp_streams: false,
-  hostname_blacklist: [/example\.com/],
-  dns_servers: ["1.1.1.3", "1.0.0.3"]
-});
-
-const fastify = Fastify({
-	serverFactory: (handler) => {
-		return createServer()
-			.on("request", (req, res) => {
-				res.setHeader("Cross-Origin-Opener-Policy", "same-origin");
-				res.setHeader("Cross-Origin-Embedder-Policy", "require-corp");
-				handler(req, res);
-			})
-			.on("upgrade", (req, socket, head) => {
-				if (req.url.endsWith("/wisp/")) wisp.routeRequest(req, socket, head);
-				else socket.end();
-			});
-	},
-});
-
-fastify.register(fastifyStatic, {
-	root: publicPath,
-	decorateReply: true,
-});
-
-fastify.register(fastifyStatic, {
-  root: scramjetPath,
-  prefix: "/scram/",
-  decorateReply: false,
-});
-
-fastify.register(fastifyStatic, {
-	root: epoxyPath,
-	prefix: "/epoxy/",
-	decorateReply: false,
-});
-
-fastify.register(fastifyStatic, {
-	root: baremuxPath,
-	prefix: "/baremux/",
-	decorateReply: false,
-});
-
-fastify.setNotFoundHandler((res, reply) => {
-	return reply.code(404).type('text/html').sendFile('404.html');
-})
-
-fastify.server.on("listening", () => {
-	const address = fastify.server.address();
-
-	// by default we are listening on 0.0.0.0 (every interface)
-	// we just need to list a few
-	console.log("Listening on:");
-	console.log(`\thttp://localhost:${address.port}`);
-	console.log(`\thttp://${hostname()}:${address.port}`);
-	console.log(
-		`\thttp://${
-			address.family === "IPv6" ? `[${address.address}]` : address.address
-		}:${address.port}`
-	);
-});
-
-process.on("SIGINT", shutdown);
-process.on("SIGTERM", shutdown);
-
-function shutdown() {
-	console.log("SIGTERM signal received: closing HTTP server");
-	fastify.close();
-	process.exit(0);
+  const relativePath = url.pathname.replace(prefix, "");
+  try {
+    const file = await directory.get(relativePath);
+    if (file) {
+      return new Response(file.body, {
+        headers: { "Content-Type": file.type || "application/octet-stream" },
+      });
+    }
+  } catch (err) {
+    return new Response("Not Found", { status: 404 });
+  }
+  return null;
 }
 
-let port = parseInt(process.env.PORT || "");
+export default {
+  async fetch(request, env, ctx) {
+    const url = new URL(request.url);
 
-if (isNaN(port)) port = 8080;
+    // Serve public assets
+    if (url.pathname.startsWith("/")) {
+      const res = await serveStatic(env.ASSETS, request, "/");
+      if (res) return res;
+    }
 
-fastify.listen({
-	port: port,
-	host: "0.0.0.0",
-});
+    // Serve Scramjet assets
+    if (url.pathname.startsWith("/scram/")) {
+      const res = await serveStatic(scramjetPath, request, "/scram/");
+      if (res) return res;
+    }
+
+    // Serve Epoxy assets
+    if (url.pathname.startsWith("/epoxy/")) {
+      const res = await serveStatic(epoxyPath, request, "/epoxy/");
+      if (res) return res;
+    }
+
+    // Serve BareMux assets
+    if (url.pathname.startsWith("/baremux/")) {
+      const res = await serveStatic(baremuxPath, request, "/baremux/");
+      if (res) return res;
+    }
+
+    // Default 404
+    return new Response("404 Not Found", { status: 404 });
+  },
+};
