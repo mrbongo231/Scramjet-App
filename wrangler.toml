@@ -2,6 +2,7 @@ name = "scramjet-app"
 main = "src/index.js"
 compatibility_date = "2025-12-08"
 compatibility_flags = ["nodejs_compat"]
+workers_dev = true
 
 [assets]
 directory = "./public"
